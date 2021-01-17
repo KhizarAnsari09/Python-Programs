@@ -1,1 +1,1 @@
-# Python-Programs
+This repository contains a number of python programs some with their respective questions and some without explanation if you find it difficult to understand then just drop a comment to let me know. Hope you find what you are looking for!
