@@ -1,0 +1,34 @@
+def myfunc(n):
+    l1 =[2]
+    if(n%2 == 0):
+        for i in range(3,n,2):
+            x = 3
+            count = 0
+            loop = 0
+            while(x<i):
+                loop = loop + 1
+                if(i%x == 0):
+                    None
+                else:
+                    count = count + 1
+                x+=2
+            if (loop == count):
+                l1.append(i)
+        print(f"There are {len(l1)} prime numbers upto {n}")
+        return l1
+    else:
+        for i in range(3,n+2,2):
+            x = 3
+            count = 0
+            loop = 0
+            while(x<i):
+                loop = loop + 1
+                if(i%x == 0):
+                    None
+                else:
+                    count = count + 1
+                x+=2
+            if (loop == count):
+                l1.append(i)
+        print(f"There are {len(l1)} prime numbers upto {n}")
+        return l1

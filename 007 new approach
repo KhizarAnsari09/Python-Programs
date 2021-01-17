@@ -1,0 +1,10 @@
+def myfunc(*args):
+    l1 = []
+    for i in args:
+        l1.append(str(i))
+    if("007" in "".join(l1)):
+        return True
+    elif("07" in "".join(l1)):
+        return True
+    else:
+        return False
