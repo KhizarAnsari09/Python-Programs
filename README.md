@@ -1,9 +1,7 @@
 This repository contains a number of python programs some with their respective questions and some without explanation if you find it difficult to understand then just drop a comment to let me know. Hope you find what you are looking for!
-/*using Microsoft.WindowsAzure.Storage.Auth.StorageCredentials;
-using Microsoft.WindowsAzure.Storage.CloudStorageAccount;
-using Microsoft.WindowsAzure.Storage.Blob.CloudBlobClient;
-using Microsoft.WindowsAzure.Storage.Blob.CloudBlobContainer;
-using Microsoft.WindowsAzure.Storage.Blob.CloudBlobDirectory;*/
+
+
+
 
 using Microsoft.Azure.Storage.Auth.StorageCredentials;
 using Microsoft.Azure.Storage.CloudStorageAccount;
@@ -17,28 +15,6 @@ public final class FetchDataFromBlobStorage
 {
     public static void main(Args _args)
     {
-        /*Microsoft.WindowsAzure.Storage.Auth.StorageCredentials storageCredentials = new Microsoft.WindowsAzure.Storage.Auth.StorageCredentials("aofinancetest", "Connection String using SAS token");
-
-        Microsoft.WindowsAzure.Storage.CloudStorageAccount cloudStorageAccount = new Microsoft.WindowsAzure.Storage.CloudStorageAccount(storageCredentials, true);
-
-        Microsoft.WindowsAzure.Storage.Blob.CloudBlobClient cloudBlobClient =  new Microsoft.WindowsAzure.Storage.Blob.CloudBlobClient(cloudStorageAccount.BlobStorageUri, storageCredentials);
-
-        Microsoft.WindowsAzure.Storage.Blob.CloudBlobContainer cloudBlobContainer = cloudBlobClient.GetContainerReference("purchase-invoice");
-
-        var listOfBlobs = cloudBlobContainer.ListBlobs(null, true, 0, null, null);
-
-        var enumerator = listOfBlobs.GetEnumerator();
-
-        while(enumerator.MoveNext())
-        {
-            Microsoft.WindowsAzure.Storage.Blob.CloudBlockBlob cloudBlockBlob = enumerator.get_current();
-
-            cloudBlockBlob.
-
-            Info(strFmt("%1", cloudBlockBlob.Name));
-
-        }*/
-
         // Passing the connection string and storage account name
         Microsoft.Azure.Storage.Auth.StorageCredentials storageCredentials = new Microsoft.Azure.Storage.Auth.StorageCredentials("aofinancetest", "ORmQejJLdvFaYJnoqXB8pzFke0txsEWQ1zdxA6KvEEDcsu5u7xI2y5EJrjEMY+3iT/oweaekg1mY+AStWFbWMw==");
 
@@ -96,6 +72,8 @@ public final class FetchDataFromBlobStorage
                 memStream.Dispose();
             
             }
+
+            
 
         }
 
