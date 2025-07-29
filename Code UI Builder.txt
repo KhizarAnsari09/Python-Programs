@@ -1,0 +1,38 @@
+111 register and 143 the replaced method
+
+Method name matchAutoAfterImportModified in class BankStatementImportBatch
+
+
+
+
+internal final class AOW_AutoPurchaseOrderCreationUIBuilder extends SysOperationAutomaticUIBuilder
+{
+    private DialogField ValueChanges;
+    private DialogField EnablesOrDisables;
+
+    public void postBuild()
+    {
+        super();
+
+        ValueChanges = this.bindInfo().getDialogField(this.dataContractObject(), methodStr(AOW_AutoPurchaseOrderCreationContract, parmValueChanges));
+        
+        EnablesOrDisables = this.bindInfo().getDialogField(this.dataContractObject(), methodStr(AOW_AutoPurchaseOrderCreationContract, parmEnablesOrDisables));
+
+    }
+
+    public void postRun()
+    {
+        super();
+
+        ValueChanges.registerOverrideMethod(methodStr(FormCheckBoxControl, modified), methodStr(AOW_AutoPurchaseOrderCreationUIBuilder, New_Modified), this);
+
+    }
+
+    public boolean New_Modified(FormCheckBoxControl _control)
+    {
+        EnablesOrDisables.enabled(ValueChanges.value() == NoYes::Yes);
+
+        return true;
+    }
+
+}
