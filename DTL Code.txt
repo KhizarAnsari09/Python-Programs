@@ -1,0 +1,435 @@
+internal final class AOW_DirectToLaneService extends SysOperationServiceBase
+{   
+    /// <summary>
+    /// Class entry point. System will call this method when the Direct to Lane Controller menu item is clicked
+    /// </summary>
+    /// <param name = "_contract">The contract class which passes the timeslots.</param>
+    public void autoCrossDock(AOW_DirectToLaneContract _contract)
+    {
+        TimeOfDay fromTimeslot = _contract.parmTimeslotFrom(), toTimeslot = _contract.parmTimeslotTo();
+
+        SystemParameters sysParameters = SystemParameters::find();
+
+        utcdatetime todayDateTime = DateTimeUtil::getSystemDateTime(), todayDate = today();
+
+        utcdatetime minPODateTime, maxPODateTime, minSODateTime, maxSODateTime;
+
+        minPODateTime = DateTimeUtil::newDateTime(any2Date(DateTimeUtil::addDays(todayDate, sysParameters.AOW_PurchaseOrderMinDaysAhead)), fromTimeslot);
+        maxPODateTime = DateTimeUtil::newDateTime(any2Date(DateTimeUtil::addDays(todayDate, sysParameters.AOW_PurchaseOrderMaxDaysAhead)), toTimeslot);
+
+        minSODateTime = DateTimeUtil::addDays(todayDate, sysParameters.AOW_SalesOrderMinDaysAhead);
+        maxSODateTime = DateTimeUtil::addDays(todayDate, sysParameters.AOW_SalesOrderMaxDaysAhead);
+        
+        //minPODateTime = DateTimeUtil::newDateTime(DateTimeUtil::Addda);
+
+        SalesLine   salesLine;
+        SalesTable  salesTable;
+
+        utcdatetime tomorrow = DateTimeUtil::addDays(todayDateTime, sysParameters.AOW_SalesOrderMinDaysAhead);
+        utcdatetime dayAfterTomorrow = DateTimeUtil::addDays(todayDateTime, sysParameters.AOW_SalesOrderMaxDaysAhead);
+
+
+        Query purchQuery = new Query();
+        QueryBuildDataSource qbdsPurchLine = purchQuery.addDataSource(tableNum(PurchLine)), qbdsLoadHeader, qbdsLoadLine;
+
+        qbdsPurchLine.addRange(fieldNum(PurchLine, PurchStatus)).value(queryValue(enum2int(PurchStatus::Backorder)));
+        qbdsPurchLine.addRange(fieldNum(PurchLine, DataAreaId)).value(queryValue(curExt()));
+        
+        qbdsLoadLine = qbdsPurchLine.addDataSource(tableNum(WHSLoadLine));
+        qbdsLoadLine.addRange(fieldNum(WHSLoadLine, LoadDirection)).value(queryValue(enum2int(WHSLoadDirection::Inbound)));
+        qbdsLoadLine.addLink(fieldNum(PurchLine, PurchId), fieldNum(WHSLoadLine, OrderNum));
+        qbdsLoadLine.addLink(fieldNum(PurchLine, ItemId), fieldNum(WHSLoadLine, ItemId));
+
+        qbdsLoadHeader = qbdsLoadLine.addDataSource(tableNum(WHSLoadTable));
+        qbdsLoadHeader.relations(true);
+        qbdsLoadHeader.addRange(fieldNum(WHSLoadTable, LoadStatus)).value(queryValue(enum2int(WHSLoadStatus::Open)));
+        //qbdsLoadHeader.addRange(fieldNum(WHSLoadTable, ETA)).value(queryRange(tomorrow, dayAfterTomorrow));
+        qbdsLoadHeader.addRange(fieldNum(WHSLoadTable, ETA)).value(queryRange(minPODateTime, maxPODateTime));
+
+        QueryRun PurchQueryRun = new QueryRun(purchQuery);
+
+
+
+        while(PurchQueryRun.next())
+        {
+            PurchLine purchLine = PurchQueryRun.get(tableNum(PurchLine));
+            WHSLoadLine whsloadLine = PurchQueryRun.get(tableNum(WHSLoadLine));
+            InventDim   _inventDimCriteria;
+
+            Qty purchOrdered = purchLine.calcQtyOrdered(), purchRegis = purchLine.qtyMarked();
+
+            Qty totalQtyAvailableForMarking = abs(purchOrdered) - abs(purchRegis);
+
+            if(totalQtyAvailableForMarking > 0 /*&& purchLine.PurchId == "00000277"*/)
+            {
+                //Map mapMarkNow = new Map(Types::Int64, Types::Record);
+
+                InventTable inventTable = InventTable::find(purchLine.ItemId, false);
+
+                
+                // Filtering sales order which are +2 or +3 from today and only those which have some quantity available to be marked
+                Query salesQuery = new Query();
+
+                QueryBuildDataSource qbdsSalesLine, qbdsSalesHeader = salesQuery.addDataSource(tableNum(SalesTable)), qbdsWHSLoadLine;
+
+                qbdsSalesHeader.addRange(fieldNum(SalesTable, DataAreaId)).value(queryValue(curExt()));
+                qbdsSalesHeader.addRange(fieldNum(SalesTable, SalesStatus)).value(queryValue(enum2int(SalesStatus::Backorder)));
+                qbdsSalesHeader.addRange(fieldNum(SalesTable, ReleaseStatus)).value(SysQuery::valueNot(enum2int(WHSReleaseStatus::Released)));
+                //qbdsSalesHeader.addRange(fieldNum(SalesTable, ShippingDateRequested)).value(queryRange(DateTimeUtil::addDays(todayDate, sysParameters.AOW_SalesOrderMinDaysAhead), DateTimeUtil::addDays(todayDate, sysParameters.AOW_SalesOrderMaxDaysAhead)));
+                qbdsSalesHeader.addRange(fieldNum(SalesTable, ShippingDateRequested)).value(queryRange(minSODateTime, maxSODateTime));
+
+                qbdsSalesLine = qbdsSalesHeader.addDataSource(tableNum(SalesLine));
+                qbdsSalesLine.addRange(fieldNum(SalesLine, ItemId)).value(queryValue(purchLine.ItemId));
+                qbdsSalesLine.relations(true);
+
+                qbdsWHSLoadLine = qbdsSalesLine.addDataSource(tableNum(WHSLoadLine));
+                qbdsWHSLoadLine.addLink(fieldNum(SalesLine, InventTransId), fieldNum(WHSLoadLine, InventTransId));
+                qbdsWHSLoadLine.joinMode(JoinMode::NoExistsJoin);
+
+                
+                QueryRun salesQueryRun = new QueryRun(salesQuery);
+                
+                //info(strFmt("Load ID = %1 Purch ID = %2 Item ID = %3 Ordered = %4 Registered = %5", whsloadLine.LoadId, whsloadLine.OrderNum, whsloadLine.ItemId, purchLine.calcQtyOrdered(), purchLine.registered()));
+            
+                while(salesQueryRun.next())
+                {
+                    SalesLine localSalesLine = salesQueryRun.get(tableNum(SalesLine));
+
+                    Map mapMarkNow = new Map(Types::Int64, Types::Record);
+
+                    if(localSalesLine.ItemId == purchLine.ItemId)
+                    {
+                        // Check the total ordered Quantity and the marked quantity against a sales line
+                        Qty markNow = 0, calcQtyOrdered = abs(localSalesLine.calcQtyOrdered()), qtyMarked = abs(localSalesLine.qtyMarked());
+                    
+                        // Below will gives us any unmarked quantity available for marking against a sales line.
+                        Qty unMarked = calcQtyOrdered - qtyMarked;
+
+                        // Only proceed if you have some quantity in the sales order available to be marked
+                        if(unMarked > 0 /*&& localSalesLine.SalesId == "000962"*/)
+                        {
+                            InventTrans inventTrans = InventTrans::findTransId(localSalesLine.InventTransId, false);
+
+                            TmpInventTransMark tmpInventTransMark;
+                            tmpInventTransMark.clear();
+                            tmpInventTransMark.initFromInventTrans(inventTrans);
+                            tmpInventTransMark.aggregateInventTrans(inventTrans, inventTable);
+
+                            // If the unmarked quantity is smaller than or equal to totalQtyAvailableForMarking then use the unmarked as the markNow and deduct it from the totalQtyAvailableForMarking
+                            if(totalQtyAvailableForMarking - unMarked >= 0)
+                            {
+                                markNow = unMarked;
+
+                                totalQtyAvailableForMarking -= unMarked;
+                            }
+                            // If the unmarked quantity is greater than totalQtyAvailableForMarking then use the totalQtyAvailableForMarking and set the totalQtyAvailableForMarking to zero
+                            else
+                            {
+                                markNow = totalQtyAvailableForMarking;
+
+                                totalQtyAvailableForMarking = 0;
+                            }
+
+
+                            tmpInventTransMark.qtyMarkNow = -markNow;
+
+                            // In some cases we have more salesQty that purchQty and we have to pass the remaining quantity, otherwise it is zero
+                            tmpInventTransMark.QtyRemain = -(unMarked - markNow);
+
+                            ttsbegin;
+                            tmpInventTransMark.insert();
+                            ttscommit;
+
+                            //info(strFmt("Temporary Invent Trans Mark = %1, Sales id = %2, item Id = %3, Line number = %4, qtyOrdered = %5, qtyMarked = %6", tmpInventTransMark, localSalesLine.SalesId, localSalesLine.ItemId, localSalesLine.LineNum, localSalesLine.calcQtyOrdered(), localSalesLine.qtyMarked()));
+
+                            mapMarkNow.insert(tmpInventTransMark.RecId, tmpInventTransMark);
+
+                            InventUpdateMarkingParameters markingParameters = InventUpdateMarkingParameters::createInstance();
+
+                            markingParameters.parmInventTransOriginRecId(InventTransOrigin::findByInventTransId(purchLine.InventTransId, false).RecId);
+
+                            _inventDimCriteria.clear();
+                            _inventDimCriteria.initFromInventDim(purchLine.inventDim());
+
+                            ttsbegin;
+                            _inventDimCriteria.insert();
+                            ttscommit;
+
+                            markingParameters.parmInventDimCriteria(_inventDimCriteria);
+                            markingParameters.parmQty(purchOrdered);
+                            markingParameters.parmTmpInventTransMarkMap(mapMarkNow);
+                            markingParameters.parmPreReserveAccordingToMarking(false);
+                            markingParameters.completeInitialization();
+
+                            InventUpdateMarking::createInstance(markingParameters).updateMarking();
+
+                            info(strFmt("totalQtyAvailableForMarking = %1, markNow = %2, salesId = %3, PurchId = %4, ItemId = %5, purchaseRegistered = %6", totalQtyAvailableForMarking, markNow, localSalesLine.SalesId, purchLine.PurchId, localSalesLine.ItemId, purchLine.registered()));
+
+                        }
+
+                        //info(strFmt("totalQtyAvailableForMarking = %1, markNow = %2, salesId = %3, LineNum = %4, ItemId = %5", totalQtyAvailableForMarking, markNow, localSalesLine.SalesId, localSalesLine.LineNum, localSalesLine.ItemId));
+
+                        if(totalQtyAvailableForMarking == 0)
+                        {
+                            break;
+                        }
+                    
+                        //info(strFmt("SalesId = %1, ItemId = %2 Line number = %3, calcQtyOrdered = %4, qtyMarked = %5", localSalesLine.SalesId, localSalesLine.ItemId, localSalesLine.LineNum, localSalesLine.calcQtyOrdered(), localSalesLine.qtyMarked()));
+
+                        /*if(ll.SalesId == "000885" || ll.SalesId == "000910")
+                        {
+                            info(strFmt("SalesId = %1, ItemId = %2 Line number = %3 Created date time = %4, ", ll.SalesId, ll.ItemId, ll.LineNum, ll.CreatedDateTime));
+                        }*/
+
+                    }
+                    
+                }
+
+                //InventUpdateMarkingParameters markingParameters = InventUpdateMarkingParameters::createInstance();
+
+                //markingParameters.parmInventTransOriginRecId(InventTransOrigin::findByInventTransId(purchLine.InventTransId, false).RecId);
+
+                //_inventDimCriteria.clear();
+                //_inventDimCriteria.initFromInventDim(purchLine.inventDim());
+
+                //ttsbegin;
+                //_inventDimCriteria.insert();
+                //ttscommit;
+
+                //markingParameters.parmInventDimCriteria(_inventDimCriteria);
+                //markingParameters.parmQty(purchOrdered);
+                //markingParameters.parmTmpInventTransMarkMap(mapMarkNow);
+                //markingParameters.parmPreReserveAccordingToMarking(false);
+                //markingParameters.completeInitialization();
+
+                //InventUpdateMarking::createInstance(markingParameters).updateMarking();
+
+
+            }//Purchase if ends here
+
+            //info(strFmt("Load ID = %1 Purch ID = %2 Item ID = %3 Ordered = %4 Registered = %5", whsloadLine.LoadId, whsloadLine.OrderNum, whsloadLine.ItemId, purchLine.calcQtyOrdered(), purchLine.registered()));
+            
+        }
+
+    }
+
+    /// <summary>
+    /// Class entry point. The system will call this method when a designated menu 
+    /// is selected or when execution starts and this class is set as the startup class.
+    /// </summary>
+    /// <param name = "_args">The specified arguments.</param>
+    //public static void main(Args _args)
+    //{
+    //    utcdatetime todayDateTime = DateTimeUtil::getSystemDateTime();
+    //    utcdatetime todayDate = today();
+
+    //    SalesLine   salesLine;
+    //    SalesTable  salesTable;
+
+    //    utcdatetime tomorrow = DateTimeUtil::addDays(todayDateTime, 1);
+
+    //    //PurchTable      purchTable;
+    //    //WHSLoadTable    whsLoadTable;
+    //    //WHSLoadLine     whsLoadLine;
+    //    //WHSWorkTable    whsWorkTable;
+    //    //PurchLine       purchLine;
+
+
+    //    //while select * from purchLine where purchLine.PurchStatus == PurchStatus::Backorder
+    //    //    join whsLoadLine where whsLoadLine.OrderNum == purchLine.PurchId && whsLoadLine.LoadDirection == WHSLoadDirection::Inbound && whsLoadLine.ItemId == purchLine.ItemId
+    //    //    join whsLoadTable where  whsLoadLine.LoadId == whsLoadTable.LoadId && whsLoadTable.LoadStatus == WHSLoadStatus::Open && whsLoadTable.ETA <= tomorrow && whsLoadTable.ETA >= todayDateTime  
+    //    //{
+    //    //    if((purchLine.calcQtyOrdered() - purchLine.registered()) > 0)
+    //    //    {
+
+    //    //    }
+
+    //    //    info(strFmt("Load ID = %5 Purch ID = %4 Item ID = %1 Ordered = %2 Registered = %3", purchLine.ItemId, purchLine.calcQtyOrdered(), purchLine.registered(), purchLine.PurchId, whsLoadLine.LoadId));
+    //    //}
+
+
+    //    Query purchQuery = new Query();
+    //    QueryBuildDataSource qbdsPurchLine = purchQuery.addDataSource(tableNum(PurchLine)), qbdsLoadHeader, qbdsLoadLine;
+
+
+    //    qbdsPurchLine.addRange(fieldNum(PurchLine, PurchStatus)).value(queryValue(enum2int(PurchStatus::Backorder)));
+
+    //    qbdsLoadLine = qbdsPurchLine.addDataSource(tableNum(WHSLoadLine));
+    //    //qbdsLoadLine.relations(true);
+    //    //qbdsLoadLine.fields().clearFieldList();
+    //    //qbdsLoadLine.fields().addField(fieldNum(WHSLoadLine, LoadId));
+    //    //qbdsLoadLine.fields().addField(fieldNum(WHSLoadLine, ItemId));
+    //    //qbdsLoadLine.fields().addField(fieldNum(WHSLoadLine, OrderNum));
+    //    //qbdsLoadLine.fields().addField(fieldNum(WHSLoadLine, LoadDirection));
+    //    qbdsLoadLine.addRange(fieldNum(WHSLoadLine, LoadDirection)).value(queryValue(enum2int(WHSLoadDirection::Inbound)));
+    //    qbdsLoadLine.addLink(fieldNum(PurchLine, PurchId), fieldNum(WHSLoadLine, OrderNum));
+    //    qbdsLoadLine.addLink(fieldNum(PurchLine, ItemId), fieldNum(WHSLoadLine, ItemId));
+
+    //    qbdsLoadHeader = qbdsLoadLine.addDataSource(tableNum(WHSLoadTable));
+    //    qbdsLoadHeader.relations(true);
+    //    //qbdsLoadHeader.fields().clearFieldList();
+    //    //qbdsLoadHeader.fields().addField(fieldNum(WHSLoadTable, LoadId));
+    //    //qbdsLoadHeader.fields().addField(fieldNum(WHSLoadTable, LoadStatus));
+    //    //qbdsLoadHeader.fields().addField(fieldNum(WHSLoadTable, ETA));
+    //    //qbdsLoadHeader.addRange(fieldNum(WHSLoadTable, LoadStatus)).value(queryValue(enum2int(WHSLoadStatus::Open)));
+    //    qbdsLoadHeader.addRange(fieldNum(WHSLoadTable, ETA)).value(queryRange(todayDateTime, tomorrow));
+
+    //    QueryRun PurchQueryRun = new QueryRun(purchQuery);
+
+
+
+    //    // Filtering sales order which are +2 or +3 from today and only those which have some quantity available to be marked
+    //    Query salesQuery = new Query();
+
+    //    QueryBuildDataSource qbdsSalesLine, qbdsSalesHeader = salesQuery.addDataSource(tableNum(SalesTable)), qbdsWHSLoadLine;
+
+    //    qbdsSalesHeader.addRange(fieldNum(SalesTable, SalesStatus)).value(queryValue(enum2int(SalesStatus::Backorder)));
+    //    qbdsSalesHeader.addRange(fieldNum(SalesTable, ReleaseStatus)).value(SysQuery::valueNot(enum2int(WHSReleaseStatus::Released)));
+    //    qbdsSalesHeader.addRange(fieldNum(SalesTable, ShippingDateRequested)).value(queryRange(DateTimeUtil::addDays(todayDate, 2), DateTimeUtil::addDays(todayDate, 3)));
+
+    //    qbdsSalesLine = qbdsSalesHeader.addDataSource(tableNum(SalesLine));
+    //    qbdsSalesLine.relations(true);
+
+    //    qbdsWHSLoadLine = qbdsSalesLine.addDataSource(tableNum(WHSLoadLine));
+    //    qbdsWHSLoadLine.addLink(fieldNum(SalesLine, InventTransId), fieldNum(WHSLoadLine, InventTransId));
+    //    qbdsWHSLoadLine.joinMode(JoinMode::NoExistsJoin);
+
+
+    //    QueryRun salesQueryRun = new QueryRun(salesQuery);
+
+    //    while(PurchQueryRun.next())
+    //    {
+    //        PurchLine purchLine = PurchQueryRun.get(tableNum(PurchLine));
+    //        WHSLoadLine whsloadLine = PurchQueryRun.get(tableNum(WHSLoadLine));
+    //        InventDim   _inventDimCriteria;
+
+    //        Qty purchOrdered = purchLine.calcQtyOrdered(), purchRegis = purchLine.registered();
+
+    //        Qty totalQtyAvailableForMarking = abs(purchLine.calcQtyOrdered()) - abs(purchLine.registered());
+
+    //        if(totalQtyAvailableForMarking > 0 /*&& purchLine.PurchId == "00000277"*/)
+    //        {
+    //            Map mapMarkNow = new Map(Types::Int64, Types::Record);
+    //            InventTable inventTable = InventTable::find(purchLine.ItemId, false);
+
+    //            info(strFmt("Load ID = %1 Purch ID = %2 Item ID = %3 Ordered = %4 Registered = %5", whsloadLine.LoadId, whsloadLine.OrderNum, whsloadLine.ItemId, purchLine.calcQtyOrdered(), purchLine.registered()));
+
+    //            while(salesQueryRun.next())
+    //            {
+    //                SalesLine localSalesLine = salesQueryRun.get(tableNum(SalesLine));
+
+    //                // Check the total ordered Quantity and the marked quantity against a sales line
+    //                Qty markNow = 0, calcQtyOrdered = abs(localSalesLine.calcQtyOrdered()), qtyMarked = abs(localSalesLine.qtyMarked());
+
+    //                // Below will gives us any unmarked quantity available for marking against a sales line.
+    //                Qty unMarked = calcQtyOrdered - qtyMarked;
+
+    //                // Only proceed if you have some quantity in the sales order available to be marked
+    //                if(unMarked > 0 /*&& localSalesLine.SalesId == "000962"*/)
+    //                {
+    //                    InventTrans inventTrans = InventTrans::findTransId(localSalesLine.InventTransId, false);
+
+    //                    TmpInventTransMark tmpInventTransMark;
+    //                    tmpInventTransMark.clear();
+    //                    tmpInventTransMark.initFromInventTrans(inventTrans);
+    //                    tmpInventTransMark.aggregateInventTrans(inventTrans, inventTable);
+
+    //                    // If the unmarked quantity is smaller than or equal to totalQtyAvailableForMarking then use the unmarked as the markNow and deduct it from the totalQtyAvailableForMarking
+    //                    if(totalQtyAvailableForMarking - unMarked >= 0)
+    //                    {
+    //                        markNow = unMarked;
+
+    //                        totalQtyAvailableForMarking -= unMarked;
+    //                    }
+    //                    // If the unmarked quantity is greater than totalQtyAvailableForMarking then use the totalQtyAvailableForMarking and set the totalQtyAvailableForMarking to zero
+    //                    else
+    //                    {
+    //                        markNow = totalQtyAvailableForMarking;
+
+    //                        totalQtyAvailableForMarking = 0;
+    //                    }
+
+
+    //                    tmpInventTransMark.qtyMarkNow = -markNow;
+
+    //                    // In some cases we have more salesQty that purchQty and we have to pass the remaining quantity, otherwise it is zero
+    //                    tmpInventTransMark.QtyRemain = -(unMarked - markNow);
+
+    //                    ttsbegin;
+    //                    tmpInventTransMark.insert();
+    //                    ttscommit;
+
+    //                    info(strFmt("Temporary Invent Trans Mark = %1, Sales id = %2, item Id = %3, Line number = %4, qtyOrdered = %5, qtyMarked = %6", tmpInventTransMark, localSalesLine.SalesId, localSalesLine.ItemId, localSalesLine.LineNum, localSalesLine.calcQtyOrdered(), localSalesLine.qtyMarked()));
+
+    //                    mapMarkNow.insert(tmpInventTransMark.RecId, tmpInventTransMark);
+
+    //                    info(strFmt("totalQtyAvailableForMarking = %1, markNow = %2, salesId = %3, LineNum = %4, ItemId = %5", totalQtyAvailableForMarking, markNow, localSalesLine.SalesId, localSalesLine.LineNum, localSalesLine.ItemId));
+
+    //                }
+
+    //                //info(strFmt("totalQtyAvailableForMarking = %1, markNow = %2, salesId = %3, LineNum = %4, ItemId = %5", totalQtyAvailableForMarking, markNow, localSalesLine.SalesId, localSalesLine.LineNum, localSalesLine.ItemId));
+
+    //                if(totalQtyAvailableForMarking == 0)
+    //                {
+    //                    break;
+    //                }
+
+    //                //info(strFmt("SalesId = %1, ItemId = %2 Line number = %3, calcQtyOrdered = %4, qtyMarked = %5", localSalesLine.SalesId, localSalesLine.ItemId, localSalesLine.LineNum, localSalesLine.calcQtyOrdered(), localSalesLine.qtyMarked()));
+
+    //                /*if(ll.SalesId == "000885" || ll.SalesId == "000910")
+    //                {
+    //                    info(strFmt("SalesId = %1, ItemId = %2 Line number = %3 Created date time = %4, ", ll.SalesId, ll.ItemId, ll.LineNum, ll.CreatedDateTime));
+    //                }*/
+
+    //            }
+
+    //            InventUpdateMarkingParameters markingParameters = InventUpdateMarkingParameters::createInstance();
+
+    //            markingParameters.parmInventTransOriginRecId(InventTransOrigin::findByInventTransId(purchLine.InventTransId, false).RecId);
+
+    //            _inventDimCriteria.clear();
+    //            _inventDimCriteria.initFromInventDim(purchLine.inventDim());
+
+    //            ttsbegin;
+    //            _inventDimCriteria.insert();
+    //            ttscommit;
+
+    //            markingParameters.parmInventDimCriteria(_inventDimCriteria);
+    //            markingParameters.parmQty(purchLine.calcQtyOrdered());
+    //            markingParameters.parmTmpInventTransMarkMap(mapMarkNow);
+    //            markingParameters.parmPreReserveAccordingToMarking(false);
+    //            markingParameters.completeInitialization();
+
+    //            InventUpdateMarking::createInstance(markingParameters).updateMarking();
+
+
+
+    //            //info(strFmt("Mark Now map = %1", packedContainer));
+
+    //            //Tmp table banake 1 1 karke usko map mee dalo aur fir woh map ko pack karke niche wale code mee daaldo
+
+    //            //TmpInventTransMark::updateTmpMark(inventTransOrigin.RecId, inventDim, inventTrans.Qty, mapMarkNow.pack(), true, false);
+
+
+
+    //            /*while select SalesId, SalesStatus, ShippingDateRequested, ReleaseStatus from salesTable where salesTable.SalesStatus == SalesStatus::Backorder && salesTable.ReleaseStatus != WHSReleaseStatus::Released && twoDays >= salesTable.ShippingDateRequested && salesTable.ShippingDateRequested <= threeDays
+    //                join /*SalesId from*/ salesLine order by CreatedDateTime desc where salesTable.SalesId == salesLine.SalesId
+    //                notexists join whsloadLine where salesLine.InventTransId == whsloadLine.InventTransId
+
+    //            {
+    //                if(salesLine.SalesId == "000885" || salesLine.SalesId == "000910")
+    //                {
+    //                    info(strFmt("SalesId = %1, ItemId = %2 Line number = %3 Created date time = %4", salesLine.SalesId, salesLine.ItemId, salesLine.LineNum, salesLine.CreatedDateTime));
+    //                }
+
+    //            }*/
+
+    //        }//Purchase if ends here
+
+    //        //info(strFmt("Load ID = %1 Purch ID = %2 Item ID = %3 Ordered = %4 Registered = %5", whsloadLine.LoadId, whsloadLine.OrderNum, whsloadLine.ItemId, purchLine.calcQtyOrdered(), purchLine.registered()));
+
+    //    }
+
+    //}
+
+}
