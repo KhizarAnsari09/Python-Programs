@@ -1,0 +1,21 @@
+[SysODataActionAttribute("GetSalesLines", false), SysODataCollectionAttribute("return", Types::String, "GetSalesLinesCall")]
+public static List getSalesLines(SalesId salesId, DataAreaId LE)
+{
+    List data = new List(Types::String);
+
+    SalesLine salesLine;
+
+    while select * from salesLine where salesLine.SalesId == salesId
+    {
+        SalesLineContractClass response = new SalesLineContractClass();
+
+        response.parmSalesId(salesLine.SalesId);
+        response.parmLineNum(salesLine.LineNum);
+        response.parmItemId(salesLine.ItemId);
+
+        data.addEnd(FormJsonSerializer::serializeClass(response));
+
+    }
+
+    return data;
+}

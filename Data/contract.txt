@@ -1,0 +1,29 @@
+[DataContract]
+public final class SalesLineContractClass
+{
+    private SalesId salesId;
+    private LineNum lineNum;
+    private ItemId  itemId;
+
+    [DataMemberAttribute('SalesId')]
+    public SalesId parmSalesId(SalesId _salesId = salesId)
+    {
+        salesId = _salesId;
+        return salesId;
+    }
+
+    [DataMemberAttribute('LineNum')]
+    public LineNum parmLineNum(LineNum _lineNum = lineNum)
+    {
+        lineNum = _lineNum;
+        return lineNum;
+    }
+
+    [DataMemberAttribute('ItemId')]
+    public ItemId parmItemId(ItemId _itemId = itemId)
+    {
+        itemId = _itemId;
+        return itemId;
+    }
+
+}
