@@ -1,0 +1,310 @@
+public final class AOW_EmployeeServiceClass
+{
+    public AOW_EmployeeResponseList ProcessEmployee(AOW_EmployeeContractList request)
+    {
+        changecompany("usmf")
+        {
+            HcmWorkerEntity         workerEntity;
+            HcmPositionEntity       positionEntity;
+            DirPartyBaseEntity      partyEntity;
+            HcmEmploymentV2Entity   hcmEmploymentEntity;
+        
+            SysInfoLogEnumerator     infoLogEnum;
+            SysInfologMessageStruct  infoMessageStruct;
+
+            List requestList = new List(Types::Class);
+
+            requestList = request.parmRequest();
+
+            List responseList = new List(Types::Class);
+
+            ListEnumerator listEnum = requestList.getEnumerator();
+
+            utcdatetime never = DateTimeUtil::maxValue();
+
+            while(listEnum.moveNext())
+            {
+                AOW_EmployeeContractClass singleObject = new AOW_EmployeeContractClass();
+
+                singleObject = listEnum.current();
+
+                HcmPersonnelNumberId workerId = singleObject.parmBadgeID();
+                FirstName firstName = singleObject.parmForeName();
+                LastName lastName = singleObject.parmSurName();
+                utcdatetime employementDate = DateTimeUtil::parse(singleObject.parmRegisteredDate());
+                NoYes archived = any2Enum(singleObject.parmArchived());
+                str archivedComment = singleObject.parmArchivedComment();
+                str costCentreID = singleObject.parmCostCenterID();
+                str costCentreName = singleObject.parmCostCenterName();
+                str defaultRole = singleObject.parmDefaultRole();
+                str employeeID = singleObject.parmEmployee_ID();
+                int employeeProhibited = singleObject.parmEmployeeProhibited();
+                str employeeProhibitedByID = singleObject.parmEmployeeProhibitedByID();
+                utcdatetime employeeProhibitedDate = str2Datetime(singleObject.parmEmployeeProhibitedDate(), 231);
+                str registeredByID = singleObject.parmRegisteredByID();
+                str roleID = singleObject.parmRoleID();
+                str teamID = singleObject.parmTeamID();
+                str tnaStatus = singleObject.parmTNAStatus();
+                str teamName = singleObject.parmTeamName();
+
+                try
+                {
+                    //partyEntity.clear();
+                    //partyEntity.initValue();
+
+                    //partyEntity.PersonFirstName = firstName;
+                    //partyEntity.PersonLastName = lastName;
+                    //partyEntity.Name = firstName + lastName;
+                    //partyEntity.LanguageId = "en-us";
+                    //partyEntity.PartyType = "Person";
+
+                    //ttsbegin;
+                    //partyEntity.insert();
+                    //ttscommit;
+
+                    // This method creates a record in the DirPartyTable
+                    DirPartyNumber partyNumber = this.createDirPartyTableRecord(firstName, lastName);
+
+
+                    //workerEntity.clear();
+                    //workerEntity.initValue();
+
+                    //workerEntity.PersonnelNumber = workerId;
+                    //workerEntity.FirstName = firstName;
+                    //workerEntity.LastName = lastName;
+                    //workerEntity.WorkerType = HcmWorkerRelationType::Employee;
+                    //workerEntity.PersonDetailsValidFrom = employementDate;
+                    //workerEntity.PersonDetailsValidTo = never;
+                    //workerEntity.MaritalStatus = HcmPersonMaritalStatus::None;
+                    //workerEntity.LanguageId = "en-us";
+                    //workerEntity.AddressBooks = "Delhi";
+                    //workerEntity.PartyNumber = partyEntity.PartyNumber;
+
+                    //ttsbegin;
+                    //workerEntity.insert();
+                    //ttscommit;
+
+                    // Create worker using the above party number and other data
+                    this.createWorker(workerId, firstName, lastName, employementDate, never, partyNumber);
+
+
+                    // Assign employment to the worker so it becomes active
+                    //hcmEmploymentEntity.clear();
+                    //hcmEmploymentEntity.initValue();
+
+                    //hcmEmploymentEntity.WorkerType = HcmEmploymentType::Employee;
+                    //hcmEmploymentEntity.PersonnelNumber = workerId;
+                    //hcmEmploymentEntity.EmploymentStartDate = employementDate;
+                    //hcmEmploymentEntity.EmploymentEndDate = never;
+                    //hcmEmploymentEntity.LegalEntityId = "usmf";
+
+                    //ttsbegin;
+                    //hcmEmploymentEntity.insert();
+                    //ttscommit;
+
+                    // Create employment for the worker
+                    this.createWorkerEmployment(workerId, employementDate, never);
+
+
+                    //positionEntity.clear();
+                    //positionEntity.initValue();
+
+                    ////positionEntity.PositionId = NumberSeq::newGetNum(NumberSeqReference::findReference(extendedTypeNum(HcmPositionId))).num();
+                    //positionEntity.IsPrimaryPosition = NoYes::Yes;
+                    //positionEntity.WorkerPersonnelNumber = workerId;
+                    //positionEntity.WorkerAssignmentStart = employementDate;
+                    //positionEntity.WorkerAssignmentEnd = never;
+                    //positionEntity.Activation = employementDate;
+                    //positionEntity.Retirement = never;
+                    //positionEntity.DetailEffective = employementDate;
+                    //positionEntity.DetailExpiration = never;
+                    //positionEntity.JobId = "Receptionist";
+                    //positionEntity.TitleId = "Receptionist";
+                    //positionEntity.Description = "Receptionist";
+
+                    //ttsbegin;
+                    //positionEntity.insert();
+                    //ttscommit;
+
+                    // Create psoiton for the worker we created above.
+                    this.createWorkerPosition(workerId, employementDate, never);
+
+
+                    AOW_HCMWorkertable hcmWorkertable = AOW_HCMWorkertable::find(workerId, true);
+
+                    // If we do not find the record we will create one
+                    if(!hcmWorkertable)
+                    {
+                        hcmWorkertable.clear();
+                        hcmWorkertable.initValue();
+
+                        hcmWorkertable.AOW_IsArchived = archived;
+                        hcmWorkertable.AOW_ArchivedComment = archivedComment;
+                        hcmWorkertable.AOW_BadgeID = workerId;
+                        hcmWorkertable.AOW_CostCenterID = costCentreID;
+                        hcmWorkertable.AOW_CostCenterName = costCentreName;
+                        hcmWorkertable.AOW_DefaultRole = defaultRole;
+                        hcmWorkertable.AOW_EmployeeProhibited = employeeProhibited;
+                        hcmWorkertable.AOW_RoleID = roleID;
+                        hcmWorkertable.AOW_teamID = teamID;
+                        hcmWorkertable.AOW_teamName = teamName;
+
+                        ttsbegin;
+                        hcmWorkertable.insert();
+                        ttscommit;
+                    }
+
+                    // If we find the record we will update
+                    else
+                    {
+                        hcmWorkertable.AOW_IsArchived = archived;
+                        hcmWorkertable.AOW_ArchivedComment = archivedComment;
+                        hcmWorkertable.AOW_BadgeID = workerId;
+                        hcmWorkertable.AOW_CostCenterID = costCentreID;
+                        hcmWorkertable.AOW_CostCenterName = costCentreName;
+                        hcmWorkertable.AOW_DefaultRole = defaultRole;
+                        hcmWorkertable.AOW_EmployeeProhibited = employeeProhibited;
+                        hcmWorkertable.AOW_RoleID = roleID;
+                        hcmWorkertable.AOW_teamID = teamID;
+                        hcmWorkertable.AOW_teamName = teamName;
+
+                        ttsbegin;
+                        hcmWorkertable.update();
+                        ttscommit;
+
+                    }
+
+                    AOW_EmployeeResponseClass response = new AOW_EmployeeResponseClass();
+
+                    response.parmWorker(workerId);
+                    response.parmStatus("200");
+                    response.parmMessage("Success");
+
+                    responseList.addEnd(response);
+                }
+
+                catch
+                {
+                    ttsabort;
+
+                    List catchErrorString = new List(Types::String);
+
+                    infoLogEnum = SysInfoLogEnumerator::newData(infolog.infologData());
+
+                    while(infoLogEnum.moveNext())
+                    {
+                        infoMessageStruct = SysInfologMessageStruct::construct(infoLogEnum.currentMessage());
+                        catchErrorString.addEnd(infoMessageStruct.message());
+                    }
+
+                    AOW_EmployeeResponseClass response = new AOW_EmployeeResponseClass();
+
+                    response.parmWorker(workerId);
+                    response.parmStatus("403");
+                    response.parmMessage(strList2str(catchErrorString, ","));
+
+                    responseList.addEnd(response);
+
+                    continue;
+                }
+
+            }
+
+            AOW_EmployeeResponseList completeResponse = new AOW_EmployeeResponseList();
+
+            completeResponse.parmResponse(responseList);
+
+            return completeResponse;
+        }
+
+    }
+
+    public DirPartyNumber createDirPartyTableRecord(FirstName firstName, LastName lastName)
+    {
+        DirPartyBaseEntity      partyEntity;
+
+        partyEntity.clear();
+        partyEntity.initValue();
+
+        partyEntity.PersonFirstName = firstName;
+        partyEntity.PersonLastName = lastName;
+        partyEntity.Name = firstName + " " + lastName;
+        partyEntity.LanguageId = "en-us";
+        partyEntity.PartyType = "Person";
+
+        ttsbegin;
+        partyEntity.insert();
+        ttscommit;
+
+        return partyEntity.PartyNumber;
+    
+    }
+
+    public void createWorker(HcmPersonnelNumberId workerId, FirstName firstName, LastName lastName, utcDateTime never, utcdatetime employementDate, DirPartyNumber partyNumber)
+    {
+        HcmWorkerEntity workerEntity;
+
+        workerEntity.clear();
+        workerEntity.initValue();
+
+        workerEntity.PersonnelNumber = workerId;
+        workerEntity.FirstName = firstName;
+        workerEntity.LastName = lastName;
+        workerEntity.WorkerType = HcmWorkerRelationType::Employee;
+        workerEntity.PersonDetailsValidFrom = employementDate;
+        workerEntity.PersonDetailsValidTo = never;
+        workerEntity.MaritalStatus = HcmPersonMaritalStatus::None;
+        workerEntity.LanguageId = "en-us";
+        workerEntity.AddressBooks = "Delhi";
+        workerEntity.PartyNumber = partyNumber;
+
+        ttsbegin;
+        workerEntity.insert();
+        ttscommit;
+    
+    }
+
+    public void createWorkerEmployment(HcmPersonnelNumberId workerId, utcdatetime employementDate, utcdatetime never)
+    {
+        HcmEmploymentV2Entity   hcmEmploymentEntity;
+
+        hcmEmploymentEntity.clear();
+        hcmEmploymentEntity.initValue();
+
+        hcmEmploymentEntity.WorkerType = HcmEmploymentType::Employee;
+        hcmEmploymentEntity.PersonnelNumber = workerId;
+        hcmEmploymentEntity.EmploymentStartDate = employementDate;
+        hcmEmploymentEntity.EmploymentEndDate = never;
+        hcmEmploymentEntity.LegalEntityId = "usmf";
+
+        ttsbegin;
+        hcmEmploymentEntity.insert();
+        ttscommit;
+    }
+
+    public void createWorkerPosition(HcmPersonnelNumberId workerId, utcdatetime employementDate, utcdatetime never)
+    {
+        HcmPositionEntity       positionEntity;
+
+        positionEntity.clear();
+        positionEntity.initValue();
+                
+        //positionEntity.PositionId = NumberSeq::newGetNum(NumberSeqReference::findReference(extendedTypeNum(HcmPositionId))).num();
+        positionEntity.IsPrimaryPosition = NoYes::Yes;
+        positionEntity.WorkerPersonnelNumber = workerId;
+        positionEntity.WorkerAssignmentStart = employementDate;
+        positionEntity.WorkerAssignmentEnd = never;
+        positionEntity.Activation = employementDate;
+        positionEntity.Retirement = never;
+        positionEntity.DetailEffective = employementDate;
+        positionEntity.DetailExpiration = never;
+        positionEntity.JobId = "Receptionist";
+        positionEntity.TitleId = "Receptionist";
+        positionEntity.Description = "Receptionist";
+
+        ttsbegin;
+        positionEntity.insert();
+        ttscommit;
+    }
+
+}
