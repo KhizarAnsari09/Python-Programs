@@ -1,7 +1,0 @@
-{
-    "@odata.context": "https://ao-wms-dev03fa557d8ba9e325f8devaos.axcloud.dynamics.com/data/$metadata#Collection(Edm.String)",
-    "value": [
-        "{\"ItemId\":\"A0001\",\"LineNum\":1.0,\"SalesId\":\"001261\"}",
-        "{\"ItemId\":\"A0002\",\"LineNum\":2.0,\"SalesId\":\"001261\"}"
-    ]
-}
