@@ -1,0 +1,30 @@
+[ProcessGuidePageBuilderName(classStr(WarehouseFormPageBuilder))]
+public final class WarehouseFormPageBuilder extends ProcessGuidePageBuilder
+{
+    protected void addDataControls(ProcessGuidePage _page)
+    {
+        WhsrfPassthrough pass = controller.parmSessionState().parmPass();
+        
+        if(pass.lookupStr("Simple_Text_Control"))
+        {
+            _page.addTextBox("Simple_Text_Control_2", "Text box 2", extendedTypeNum(String50), true);
+            _page.addLabel(ProcessGuideDataTypeNames::WMSLocationId, "This is a label", extendedTypeNum(WHSRFUndefinedDataType));
+        }
+
+        _page.addTextBox("Simple_Text_Control", "Text box", extendedTypeNum(String50), true);
+        _page.addComboBox("Simple_ComboBox_Control", "Combo box", extendedTypeNum(WHSInventStatusId), "Alpha||Beta||Gamma", true, pass.lookupStr("Simple_ComboBox_Control"));
+        //_page.addComboBox("New_ComboBox", "New combo box", extendedTypeNum(WHSInventStatusId), "One||Two||Three", true, pass.lookupStr("New_ComboBox"));
+        
+        //_page.addListBox("List_Box", "List Box", extendedTypeNum(WHSInventStatusId), "Box1||Box2||Box3", true, pass.lookupStr("List_Box"));
+
+
+    }
+
+    protected void addActionControls(ProcessGuidePage _page)
+    {
+        _page.addButton(step.createAction(ProcessGuideActionNames::ActionOK), 1);
+        _page.addButton(step.createAction(ProcessGuideActionNames::ActionCancelExitProcess), 1);
+
+    }
+
+}

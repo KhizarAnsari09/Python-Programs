@@ -1,0 +1,18 @@
+[ProcessGuideStepName(classStr(WarehouseFormSecondStepClass))]
+public final class WarehouseFormSecondStepClass extends ProcessGuideStep
+{
+    protected final ProcessGuidePageBuilderName pageBuilderName()
+    {
+        return classStr(WarehouseFormPageBuilder);
+    }
+
+    protected void doExecute()
+    {
+        super();
+
+        WhsrfPassthrough pass = controller.parmSessionState().parmPass();
+        ProcessGuideActionName actionName = controller.parmClickedAction();
+
+    }
+
+}
