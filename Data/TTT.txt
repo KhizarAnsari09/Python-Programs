@@ -1,0 +1,7 @@
+https://learn.microsoft.com/en-us/dotnet/api/system.net.http.httpclient?view=net-9.0
+
+https://jsonplaceholder.typicode.com/todos/1
+
+
+Id = 15472, Status = RanToCompletion, Method = "{null}", Result = "{\n  \"userId\": 1,\n  \"id\": 1,\n  \"title\": \"delectus aut autem\",\n  \"completed\": false\n}"
+
