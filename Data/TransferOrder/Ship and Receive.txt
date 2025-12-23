@@ -1,0 +1,17 @@
+parmtable.clear();
+parmtable.initParmDefault();
+parmtable.ParmId = RunBaseMultiParm::getSysParmId();
+parmtable.TransferId = "003953";
+parmtable.EditLines = NoYes::Yes;
+parmtable.ShipUpdateQty = InventTransferShipUpdateQty::All;
+parmtable.UpdateType = InventTransferUpdateType::Shipment;
+parmtable.TransDate = str2Date("12/23/2025", 213);
+parmtable.AutoReceiveQty = NoYes::Yes;
+
+ttsbegin;
+parmtable.insert();
+ttscommit;
+
+
+InventTransferUpdShip updateShipReceive = InventTransferUpdShip::newParmBuffer(parmtable);
+updateShipReceive.run();
