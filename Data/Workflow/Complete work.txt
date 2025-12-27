@@ -1,0 +1,33 @@
+if(workTable.WorkStatus == WHSWorkStatus::InProcess)
+{
+    WHSTmpCompleteWorkTable whsTmpCompleteWorkTable;
+    WHSTmpCompleteWorkLine  whsTmpCompleteWorkLine;
+    WHSWorkLine             whsWorkLine;
+
+
+    whsTmpCompleteWorkTable.clear();
+    whsTmpCompleteWorkTable.initFromWHSWorkTable(workTable);
+    whsTmpCompleteWorkTable.insert();
+
+    insert_recordset whsTmpCompleteWorkLine
+            (WorkId, LineNum, WorkStatus, WorkType, wmsLocationId, ItemId, InventDimId, QtyRemain, InventQtyRemain, InventQtyWork, UnitId, UserId,
+            WorkInProcessUTCDateTime, WorkStop, InventTransId, WorkTypeCustomCode, Mandatory, WorkClassId, QtyWork, OrderNum,
+            LoadLineRefRecId, WorkTemplateLineRecId, LoadId, ShipmentId, TargetLicensePlateId, LocatedLPId, CapturedWeight)
+        select WorkId, LineNum, WorkStatus, WorkType, wmsLocationId, ItemId, InventDimId, QtyRemain, InventQtyRemain, InventQtyWork, UnitId, UserId,
+            WorkInProcessUTCDateTime, WorkStop, InventTransId, WorkTypeCustomCode, Mandatory, WorkClassId, QtyWork, OrderNum,
+            LoadLineRefRecId, WorkTemplateLineRecId, LoadId, ShipmentId, licensePlateId, LocatedLPId, CapturedWeight
+        from whsWorkLine where whsWorkLine.WorkId == workTable.workId && whsWorkLine.WorkStatus == WHSWorkStatus::Open;
+
+
+    WHSWorkManualComplete manualComplete = new WHSWorkManualComplete();
+
+    if(manualComplete.validateWork(userForWorkCompletion, whsTmpCompleteWorkTable, whsTmpCompleteWorkLine))
+    {
+        manualComplete.executeWork(userForWorkCompletion, whsTmpCompleteWorkTable, whsTmpCompleteWorkLine);
+    }
+    else
+    {
+        info(strFmt('Work %1 is not valid', workTable.workId));
+    }
+
+}
