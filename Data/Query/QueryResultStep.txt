@@ -1,0 +1,11 @@
+[ProcessGuideStepName(classStr(QueryResultStep))]
+public class QueryResultStep extends ProcessGuideStep
+{
+    #AWMS_WHSMacros
+
+    protected final ProcessGuidePageBuilderName pageBuilderName()
+    {
+        return classStr(QueryResultPageBuilder);
+    }
+
+}

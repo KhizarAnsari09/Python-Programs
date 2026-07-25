@@ -1,0 +1,19 @@
+[WHSWorkExecuteMode(WHSWorkExecuteMode::Query)]
+public class QueryDecoratorFactory implements WHSIMobileAppServiceXMLDecoratorFactory
+{
+    #AWMS_WHSMacros
+
+    public WHSMobileAppServiceXMLDecorator getDecorator(container _con)
+    {
+        if(WhsrfPassthrough::create(conPeek(_con, 2)).lookupStr(#CurrentStep) == classStr(QueryInquiryStep))
+        {
+            // When we have first inquiry page we will use the below decorator because of different requested patterns
+            return new QueryInquiryDecorator();
+        }
+        
+        // When we are on the second page we will use the below decorator because of different requested patterns
+        return new QueryResultDecorator();
+
+    }
+
+}
