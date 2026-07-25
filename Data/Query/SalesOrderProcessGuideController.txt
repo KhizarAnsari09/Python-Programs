@@ -1,0 +1,19 @@
+[WHSWorkExecuteMode(WHSWorkExecuteMode::SalesOrderQuery)]
+public final class SalesOrderProcessGuideController extends ProcessGuideController
+{
+    protected ProcessGuideStepName initialStepName()
+    {
+        return classStr(SalesOrderInquiryStep);
+    }
+
+    protected ProcessGuideNavigationRoute initializeNavigationRoute()
+    {
+        ProcessGuideNavigationRoute navigationRoute = new ProcessGuideNavigationRoute();
+        
+        navigationRoute.addFollowingStep(classStr(SalesOrderInquiryStep), classStr(SalesOrderResultStep));
+        //navigationRoute.addFollowingStep(classStr(SalesOrdeResultStep), classStr(SalesOrderInquiryStep));
+
+        return navigationRoute;
+    }
+
+}

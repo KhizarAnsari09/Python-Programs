@@ -1,0 +1,11 @@
+[ProcessGuideStepName(classStr(SalesOrderResultStep))]
+public class SalesOrderResultStep extends ProcessGuideStep
+{
+    #AWMS_WHSMacros
+
+    protected final ProcessGuidePageBuilderName pageBuilderName()
+    {
+        return classStr(SalesOrderResultPageBuilder);
+    }
+
+}

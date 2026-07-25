@@ -1,0 +1,19 @@
+[WHSWorkExecuteMode(WHSWorkExecuteMode::SalesOrderQuery)]
+public class SalesOrderDecoratorFactory implements WHSIMobileAppServiceXMLDecoratorFactory
+{
+    #AWMS_WHSMacros
+
+    public WHSMobileAppServiceXMLDecorator getDecorator(container _con)
+    {
+        if(WhsrfPassthrough::create(conPeek(_con, 2)).lookupStr(#CurrentStep) == classStr(SalesOrderInquiryStep))
+        {
+            // When we have first inquiry page we will use the below decorator because of different requested patterns
+            return new SalesOrderInquiryDecorator();
+        }
+        
+        // When we are on the second page we will use the below decorator because of different requested patterns
+        return new SalesOrderResultDecorator();
+
+    }
+
+}
