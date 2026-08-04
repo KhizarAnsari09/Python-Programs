@@ -1,0 +1,15 @@
+[ExtensionOf(tableStr(FinancialDimensionValueLegalEntityOverrideV2Entity))]
+final class FinancialDimensionValueLegalEntityOverrideV2Entity_FleetManagement_Extension
+{
+   public static str Description()
+   {
+       Description dimensionDescription = SysComputedColumn::returnField(dataentityviewstr(FinancialDimensionValueLegalEntityOverrideV2Entity),
+            dataEntityDataSourceStr(FinancialDimensionValueLegalEntityOverrideV2Entity, DimensionAttributeValue), fieldStr(DimensionAttributeValue, DisplayValue));
+
+       FinancialDimensionValueEntityView financialView;
+
+       return strFmt(@'select top 1 DESCRIPTION from FinancialDimensionValueEntityView where DIMENSIONVALUE = %1', dimensionDescription);
+       
+   }
+
+}
